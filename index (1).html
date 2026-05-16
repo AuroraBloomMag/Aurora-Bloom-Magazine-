@@ -1,0 +1,1413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aurora Bloom — A Digital Magazine</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --blush: #f5e0dc; --rose: #e8b4aa; --deep-rose: #c47a70;
+    --petal: #faf3f0; --cream: #fdf8f5; --mink: #8a6a64;
+    --bark: #5c3d38; --ink: #2c1a18; --sage: #b5c4b1;
+    --serif: 'Cormorant Garamond', Georgia, serif;
+    --sans: 'Jost', sans-serif;
+  }
+  html { scroll-behavior: smooth; }
+  body { font-family: var(--sans); background: var(--cream); color: var(--ink); font-weight: 300; overflow-x: hidden; }
+
+  /* NAV */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1.25rem 3rem;
+    background: rgba(253,248,245,0.92); backdrop-filter: blur(12px);
+    border-bottom: 0.5px solid var(--rose);
+  }
+  .nav-logo { font-family: var(--serif); font-size: 1.35rem; font-weight: 400; letter-spacing: 0.06em; color: var(--bark); cursor: pointer; }
+  .nav-right { display: flex; align-items: center; gap: 2rem; }
+  .nav-links { display: flex; gap: 2rem; list-style: none; }
+  .nav-links a { font-size: 0.72rem; font-weight: 400; letter-spacing: 0.18em; text-transform: uppercase; color: var(--mink); text-decoration: none; cursor: pointer; transition: color 0.2s; }
+  .nav-links a:hover { color: var(--bark); }
+  .nav-btn { font-family: var(--sans); font-size: 0.68rem; font-weight: 400; letter-spacing: 0.15em; text-transform: uppercase; padding: 0.5rem 1.2rem; cursor: pointer; border: 0.5px solid var(--rose); transition: all 0.2s; }
+  .nav-btn.solid { background: var(--bark); color: var(--petal); border-color: var(--bark); }
+  .nav-btn.solid:hover { background: var(--ink); }
+  .nav-btn.ghost { background: transparent; color: var(--mink); }
+  .nav-btn.ghost:hover { background: var(--blush); color: var(--bark); }
+  .nav-user { font-size: 0.72rem; color: var(--mink); font-style: italic; }
+
+  /* PAGES */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* AUTH MODAL */
+  .auth-overlay {
+    display: none; position: fixed; inset: 0; z-index: 200;
+    background: rgba(44,26,24,0.5); backdrop-filter: blur(4px);
+    align-items: center; justify-content: center;
+  }
+  .auth-overlay.open { display: flex; }
+  .auth-box {
+    background: var(--cream); border: 0.5px solid var(--rose);
+    padding: 3rem; width: 100%; max-width: 420px; position: relative;
+    animation: fadeUp 0.3s ease both;
+  }
+  .auth-close { position: absolute; top: 1rem; right: 1.25rem; background: none; border: none; font-size: 1.1rem; color: var(--mink); cursor: pointer; }
+  .auth-close:hover { color: var(--bark); }
+  .auth-eyebrow { font-size: 0.62rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--deep-rose); margin-bottom: 0.5rem; }
+  .auth-h { font-family: var(--serif); font-size: 2rem; font-weight: 300; color: var(--bark); line-height: 1.2; margin-bottom: 1.75rem; }
+  .auth-h em { font-style: italic; color: var(--deep-rose); }
+  .auth-field { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 1.1rem; }
+  .auth-field label { font-size: 0.65rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--mink); }
+  .auth-field input { font-family: var(--sans); font-size: 0.88rem; font-weight: 300; color: var(--ink); background: var(--petal); border: 0.5px solid var(--rose); padding: 0.7rem 0.9rem; outline: none; transition: border-color 0.2s; width: 100%; }
+  .auth-field input:focus { border-color: var(--deep-rose); }
+  .auth-submit { width: 100%; padding: 0.85rem; background: var(--bark); color: var(--petal); font-family: var(--sans); font-size: 0.7rem; font-weight: 400; letter-spacing: 0.2em; text-transform: uppercase; border: none; cursor: pointer; transition: background 0.2s; margin-top: 0.25rem; }
+  .auth-submit:hover { background: var(--ink); }
+  .auth-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+  .auth-switch { text-align: center; margin-top: 1.25rem; font-size: 0.78rem; color: var(--mink); }
+  .auth-switch button { background: none; border: none; color: var(--deep-rose); font-family: var(--sans); font-size: 0.78rem; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+  .auth-msg { font-size: 0.76rem; line-height: 1.6; padding: 0.65rem 0.9rem; margin-top: 0.9rem; display: none; }
+  .auth-msg.error { background: #fdf0ef; color: #a32d2d; border-left: 2px solid #a32d2d; display: block; }
+  .auth-msg.success { background: #f0f7f0; color: #3b6d11; border-left: 2px solid #3b6d11; display: block; }
+
+  /* HERO */
+  .hero { min-height: 100vh; display: grid; grid-template-columns: 1fr 1fr; align-items: center; padding-top: 5rem; overflow: hidden; }
+  .hero-left { padding: 5rem 3rem 5rem 5rem; display: flex; flex-direction: column; gap: 2rem; animation: fadeUp 1s ease both; }
+  .hero-eyebrow { font-size: 0.68rem; font-weight: 400; letter-spacing: 0.25em; text-transform: uppercase; color: var(--deep-rose); display: flex; align-items: center; gap: 0.75rem; }
+  .hero-eyebrow::before { content: ''; display: inline-block; width: 2rem; height: 0.5px; background: var(--deep-rose); }
+  .hero-title { font-family: var(--serif); font-size: clamp(3.5rem, 6vw, 5.5rem); font-weight: 300; line-height: 1.1; color: var(--bark); }
+  .hero-title em { font-style: italic; color: var(--deep-rose); }
+  .hero-sub { font-size: 0.9rem; font-weight: 300; line-height: 1.9; color: var(--mink); max-width: 38ch; }
+  .hero-ctas { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 0.5rem; }
+  .cta { display: inline-block; padding: 0.85rem 2.25rem; font-family: var(--sans); font-size: 0.7rem; font-weight: 400; letter-spacing: 0.2em; text-transform: uppercase; border: none; cursor: pointer; transition: all 0.25s; }
+  .cta.solid { background: var(--bark); color: var(--petal); }
+  .cta.solid:hover { background: var(--ink); transform: translateY(-1px); }
+  .cta.outline { background: transparent; color: var(--bark); border: 0.5px solid var(--rose); }
+  .cta.outline:hover { background: var(--blush); transform: translateY(-1px); }
+  .hero-right { position: relative; height: 100vh; display: flex; align-items: center; justify-content: center; animation: fadeIn 1.4s ease both; }
+  .hero-floral { position: absolute; inset: 0; background: radial-gradient(ellipse 70% 80% at 60% 50%, var(--blush) 0%, transparent 70%), radial-gradient(ellipse 40% 40% at 85% 20%, var(--rose) 0%, transparent 60%), radial-gradient(ellipse 30% 30% at 20% 80%, var(--rose) 0%, transparent 60%); }
+  .hero-mag { position: relative; z-index: 2; width: 300px; height: 400px; background: var(--petal); border: 0.5px solid var(--rose); display: flex; flex-direction: column; box-shadow: 16px 16px 40px rgba(92,61,56,0.12); transform: rotate(-2deg); transition: transform 0.4s ease; }
+  .hero-mag:hover { transform: rotate(0deg) scale(1.02); }
+  .mag-top { height: 60%; background: linear-gradient(160deg, var(--blush) 0%, var(--rose) 100%); position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+  .mag-bloom { font-size: 7rem; opacity: 0.35; animation: gentleSpin 20s linear infinite; }
+  .mag-badge { position: absolute; bottom: 1rem; left: 1rem; right: 1rem; }
+  .mag-badge span { font-family: var(--serif); font-size: 0.68rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--bark); background: rgba(253,248,245,0.85); padding: 0.3rem 0.7rem; }
+  .mag-bottom { flex: 1; padding: 1.25rem; display: flex; flex-direction: column; gap: 0.6rem; }
+  .mag-name { font-family: var(--serif); font-size: 1.3rem; font-weight: 400; color: var(--bark); font-style: italic; }
+  .mag-rule { height: 0.5px; background: var(--rose); }
+  .mag-tags { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .mag-tag { font-size: 0.58rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--mink); padding: 0.2rem 0.55rem; border: 0.5px solid var(--rose); }
+  .petal { position: absolute; border-radius: 50% 0 50% 0; opacity: 0.3; animation: floatPetal 8s ease-in-out infinite; }
+  .petal:nth-child(1) { width: 60px; height: 80px; background: var(--rose); top: 10%; right: 12%; }
+  .petal:nth-child(2) { width: 40px; height: 55px; background: var(--deep-rose); bottom: 20%; right: 25%; animation-delay: 2s; }
+  .petal:nth-child(3) { width: 30px; height: 45px; background: var(--rose); top: 55%; right: 8%; animation-delay: 4s; }
+
+  /* DIVIDER */
+  .divider { display: flex; align-items: center; gap: 1.5rem; padding: 0 5rem; margin: 4rem 0; }
+  .div-line { flex: 1; height: 0.5px; background: var(--rose); }
+  .div-text { font-family: var(--serif); font-size: 1.1rem; font-style: italic; color: var(--deep-rose); white-space: nowrap; }
+
+  /* ABOUT */
+  .about-sec { padding: 6rem 5rem; display: grid; grid-template-columns: 1fr 1.6fr; gap: 5rem; align-items: center; }
+  .about-deco { position: relative; display: flex; align-items: center; justify-content: center; }
+  .about-circle { width: 280px; height: 280px; border-radius: 50%; border: 0.5px solid var(--rose); background: radial-gradient(circle at 40% 40%, var(--blush), transparent); display: flex; align-items: center; justify-content: center; font-size: 6rem; animation: breathe 6s ease-in-out infinite; }
+  .about-est { position: absolute; bottom: -1rem; right: 0; font-size: 0.62rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--deep-rose); border: 0.5px solid var(--rose); padding: 0.35rem 0.9rem; background: var(--cream); }
+  .about-body { display: flex; flex-direction: column; gap: 1.5rem; }
+  .eyebrow { font-size: 0.62rem; font-weight: 400; letter-spacing: 0.25em; text-transform: uppercase; color: var(--deep-rose); display: flex; align-items: center; gap: 0.75rem; }
+  .eyebrow::before { content: ''; display: inline-block; width: 1.5rem; height: 0.5px; background: var(--deep-rose); }
+  .sec-title { font-family: var(--serif); font-size: clamp(2rem, 4vw, 3rem); font-weight: 300; color: var(--bark); line-height: 1.2; }
+  .sec-title em { font-style: italic; color: var(--deep-rose); }
+  .body-text { font-size: 0.9rem; line-height: 2; color: var(--mink); font-weight: 300; }
+  .pillars { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .pillar { font-size: 0.62rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--bark); padding: 0.4rem 1rem; border: 0.5px solid var(--rose); background: var(--petal); transition: background 0.2s; }
+  .pillar:hover { background: var(--blush); }
+
+  /* ISSUES TEASER */
+  .issues-sec { background: var(--petal); padding: 6rem 5rem; border-top: 0.5px solid var(--rose); border-bottom: 0.5px solid var(--rose); }
+  .issues-hd { display: flex; flex-direction: column; gap: 1rem; margin-bottom: 3.5rem; }
+  .issues-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; }
+  .issue-card { display: flex; flex-direction: column; border: 0.5px solid var(--rose); background: var(--cream); position: relative; overflow: hidden; cursor: pointer; transition: transform 0.3s, box-shadow 0.3s; }
+  .issue-card:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(92,61,56,0.1); }
+  .lock-veil { position: absolute; inset: 0; background: rgba(253,248,245,0.75); backdrop-filter: blur(3px); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.6rem; opacity: 0; transition: opacity 0.3s; }
+  .issue-card:hover .lock-veil { opacity: 1; }
+  .lock-icon { font-size: 1.6rem; }
+  .lock-label { font-size: 0.62rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--bark); }
+  .issue-cover { height: 200px; display: flex; align-items: center; justify-content: center; font-size: 4rem; position: relative; }
+  .issue-no { position: absolute; top: 1rem; left: 1rem; font-size: 0.58rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--bark); background: rgba(253,248,245,0.8); padding: 0.22rem 0.55rem; }
+  .issue-body { padding: 1.5rem; display: flex; flex-direction: column; gap: 0.75rem; flex: 1; }
+  .issue-date { font-size: 0.62rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--deep-rose); }
+  .issue-name { font-family: var(--serif); font-size: 1.25rem; font-weight: 400; color: var(--bark); line-height: 1.3; font-style: italic; }
+  .issue-blurb { font-size: 0.8rem; line-height: 1.8; color: var(--mink); font-weight: 300; }
+  .issue-cta { font-size: 0.62rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--deep-rose); margin-top: auto; padding-top: 1rem; border-top: 0.5px solid var(--blush); display: flex; align-items: center; gap: 0.5rem; }
+  .issue-cta::after { content: '→'; }
+
+  /* JOIN BANNER */
+  .join-banner { margin-top: 3rem; border: 0.5px solid var(--rose); background: var(--blush); padding: 2rem 2.5rem; display: flex; align-items: center; justify-content: space-between; gap: 2rem; flex-wrap: wrap; }
+  .join-text { display: flex; flex-direction: column; gap: 0.4rem; }
+  .join-title { font-family: var(--serif); font-size: 1.4rem; font-weight: 300; color: var(--bark); font-style: italic; }
+  .join-sub { font-size: 0.8rem; color: var(--mink); font-weight: 300; }
+  .join-btns { display: flex; gap: 0.75rem; flex-shrink: 0; }
+
+  /* MEMBERS PAGE */
+  .members-page { padding: 8rem 5rem 6rem; min-height: 100vh; }
+  .members-hd { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 3rem; }
+  .welcome-msg { font-size: 0.82rem; color: var(--mink); font-weight: 300; }
+  .welcome-name { color: var(--deep-rose); font-style: italic; }
+  .members-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; }
+  .member-card { display: flex; flex-direction: column; border: 0.5px solid var(--rose); background: var(--cream); cursor: pointer; transition: transform 0.3s, box-shadow 0.3s; }
+  .member-card:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(92,61,56,0.1); }
+
+  /* SOCIAL */
+  .social-sec { padding: 6rem 5rem; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 3rem; }
+  .social-hd { display: flex; flex-direction: column; gap: 1rem; align-items: center; }
+  .social-links { display: flex; gap: 1.5rem; flex-wrap: wrap; justify-content: center; }
+  .social-link { display: flex; align-items: center; gap: 0.75rem; padding: 1rem 2rem; border: 0.5px solid var(--rose); background: var(--petal); text-decoration: none; color: var(--bark); font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; transition: all 0.25s; min-width: 180px; justify-content: center; }
+  .social-link:hover { background: var(--bark); color: var(--petal); border-color: var(--bark); }
+  .soc-icon { font-size: 1.1rem; }
+  .social-quote { font-family: var(--serif); font-size: clamp(1.4rem, 3vw, 2.2rem); font-weight: 300; font-style: italic; color: var(--bark); max-width: 680px; line-height: 1.6; padding: 2.5rem 0; border-top: 0.5px solid var(--rose); border-bottom: 0.5px solid var(--rose); width: 100%; }
+
+  /* FOOTER */
+  footer { background: var(--bark); padding: 3rem 5rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1.5rem; }
+  .ft-logo { font-family: var(--serif); font-size: 1.2rem; font-weight: 300; letter-spacing: 0.08em; color: var(--blush); }
+  .ft-copy { font-size: 0.68rem; font-weight: 300; letter-spacing: 0.1em; color: var(--rose); text-align: center; }
+  .ft-tag { font-family: var(--serif); font-size: 0.85rem; font-style: italic; color: var(--rose); }
+
+  /* ANIMATIONS */
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(28px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes floatPetal { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-16px) rotate(7deg); } }
+  @keyframes gentleSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  @keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
+
+  .reveal { opacity: 0; transform: translateY(22px); transition: opacity 0.8s ease, transform 0.8s ease; }
+  .reveal.visible { opacity: 1; transform: translateY(0); }
+
+  /* FORM PAGES */
+  .form-page { padding: 8rem 5rem 6rem; min-height: 100vh; }
+  .form-page-inner { max-width: 780px; margin: 0 auto; }
+  .form-hero { display: flex; flex-direction: column; gap: 1rem; margin-bottom: 3rem; padding-bottom: 2.5rem; border-bottom: 0.5px solid var(--rose); }
+  .form-hero-title { font-family: var(--serif); font-size: clamp(2.2rem, 5vw, 3.5rem); font-weight: 300; color: var(--bark); line-height: 1.2; }
+  .form-hero-title em { font-style: italic; color: var(--deep-rose); }
+  .form-intro { font-size: 0.88rem; line-height: 2; color: var(--mink); font-weight: 300; }
+  .form-rules { display: flex; flex-direction: column; gap: 1.25rem; margin-bottom: 2.5rem; }
+  .form-rule-block { border: 0.5px solid var(--rose); background: var(--petal); padding: 1.5rem; }
+  .form-rule-title { font-size: 0.65rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--deep-rose); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem; }
+  .form-rule-list { list-style: none; display: flex; flex-direction: column; gap: 0.5rem; }
+  .form-rule-list li { font-size: 0.85rem; line-height: 1.7; color: var(--mink); padding-left: 1.2rem; position: relative; }
+  .form-rule-list li::before { content: '·'; position: absolute; left: 0; color: var(--deep-rose); }
+  .form-rule-list li.avoid { color: #a05a5a; }
+  .form-rule-list li.avoid::before { content: '✕'; font-size: 0.6rem; top: 0.15rem; }
+
+  /* FORM FIELDS */
+  .form-section { margin-bottom: 2.5rem; }
+  .form-section-title { font-family: var(--serif); font-size: 1.2rem; font-weight: 300; font-style: italic; color: var(--bark); margin-bottom: 1.25rem; padding-bottom: 0.6rem; border-bottom: 0.5px solid var(--blush); }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+  .form-grid.single { grid-template-columns: 1fr; }
+  .form-field { display: flex; flex-direction: column; gap: 0.4rem; }
+  .form-field.full { grid-column: 1 / -1; }
+  .form-field label { font-size: 0.63rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--mink); }
+  .form-field label span { color: var(--deep-rose); }
+  .form-field input, .form-field select, .form-field textarea {
+    font-family: var(--sans); font-size: 0.88rem; font-weight: 300; color: var(--ink);
+    background: var(--petal); border: 0.5px solid var(--rose); padding: 0.7rem 0.9rem;
+    outline: none; transition: border-color 0.2s; width: 100%;
+  }
+  .form-field input:focus, .form-field select:focus, .form-field textarea:focus { border-color: var(--deep-rose); }
+  .form-field textarea { resize: vertical; min-height: 110px; line-height: 1.7; }
+  .form-field select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238a6a64'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 0.9rem center; padding-right: 2rem; cursor: pointer; }
+  .form-field .field-note { font-size: 0.72rem; color: var(--mink); font-style: italic; margin-top: 0.25rem; }
+  .form-radio-group { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-top: 0.25rem; }
+  .form-radio { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.85rem; color: var(--mink); }
+  .form-radio input[type="radio"] { accent-color: var(--deep-rose); width: 14px; height: 14px; cursor: pointer; }
+  .form-checkbox-group { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.25rem; }
+  .form-checkbox { display: flex; align-items: flex-start; gap: 0.6rem; cursor: pointer; font-size: 0.85rem; color: var(--mink); line-height: 1.5; }
+  .form-checkbox input[type="checkbox"] { accent-color: var(--deep-rose); width: 14px; height: 14px; cursor: pointer; flex-shrink: 0; margin-top: 0.15rem; }
+  .upload-area { border: 0.5px dashed var(--rose); background: var(--petal); padding: 1.5rem; text-align: center; cursor: pointer; transition: background 0.2s; }
+  .upload-area:hover { background: var(--blush); }
+  .upload-icon { font-size: 1.5rem; margin-bottom: 0.4rem; }
+  .upload-label { font-size: 0.75rem; letter-spacing: 0.1em; color: var(--mink); }
+  .upload-sub { font-size: 0.68rem; color: var(--rose); margin-top: 0.25rem; }
+  .upload-area input[type="file"] { display: none; }
+  .upload-chosen { font-size: 0.75rem; color: var(--deep-rose); margin-top: 0.5rem; font-style: italic; }
+  .guidelines-box { background: var(--blush); border: 0.5px solid var(--rose); padding: 1.75rem; margin-bottom: 2.5rem; display: flex; flex-direction: column; gap: 1rem; }
+  .guidelines-title { font-family: var(--serif); font-size: 1.1rem; font-style: italic; color: var(--bark); }
+  .guidelines-text { font-size: 0.82rem; line-height: 1.9; color: var(--mink); }
+  .guidelines-text strong { color: var(--bark); font-weight: 400; }
+  .team-section { margin-bottom: 2rem; border: 0.5px solid var(--rose); overflow: hidden; }
+  .team-section-hd { background: var(--blush); padding: 1rem 1.5rem; display: flex; align-items: center; gap: 0.75rem; }
+  .team-section-name { font-family: var(--serif); font-size: 1.1rem; font-weight: 400; font-style: italic; color: var(--bark); }
+  .team-section-hrs { font-size: 0.62rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--deep-rose); }
+  .team-roles { padding: 1.25rem 1.5rem; display: flex; flex-direction: column; gap: 0.75rem; }
+  .team-role { display: flex; flex-direction: column; gap: 0.2rem; }
+  .team-role-name { font-size: 0.78rem; font-weight: 400; color: var(--bark); letter-spacing: 0.05em; }
+  .team-role-desc { font-size: 0.78rem; color: var(--mink); line-height: 1.6; }
+  .form-submit { width: 100%; padding: 1rem; background: var(--bark); color: var(--petal); font-family: var(--sans); font-size: 0.72rem; font-weight: 400; letter-spacing: 0.22em; text-transform: uppercase; border: none; cursor: pointer; transition: background 0.25s; margin-top: 1rem; }
+  .form-submit:hover { background: var(--ink); }
+  .form-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+  .form-success { display: none; text-align: center; padding: 3rem 2rem; border: 0.5px solid var(--rose); background: var(--petal); }
+  .form-success.show { display: block; }
+  .form-success-icon { font-size: 3rem; margin-bottom: 1rem; }
+  .form-success-title { font-family: var(--serif); font-size: 2rem; font-weight: 300; font-style: italic; color: var(--bark); margin-bottom: 0.75rem; }
+  .form-success-msg { font-size: 0.88rem; color: var(--mink); line-height: 1.9; }
+  .form-msg { font-size: 0.76rem; line-height: 1.6; padding: 0.65rem 0.9rem; margin-top: 0.75rem; display: none; }
+  .form-msg.error { background: #fdf0ef; color: #a32d2d; border-left: 2px solid #a32d2d; display: block; }
+
+  /* TEAM SECTION */
+  .team-sec { padding: 6rem 5rem; background: var(--cream); }
+  .team-hd { display: flex; flex-direction: column; gap: 1rem; margin-bottom: 3.5rem; }
+  .team-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; margin-bottom: 3rem; }
+  .team-card { display: flex; flex-direction: column; border: 0.5px solid var(--rose); background: var(--petal); overflow: hidden; transition: transform 0.3s, box-shadow 0.3s; }
+  .team-card:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(92,61,56,0.1); }
+  .team-card-img { height: 260px; overflow: hidden; display: flex; align-items: center; justify-content: center; position: relative; }
+  .team-card-img img { width: 100%; height: 100%; object-fit: cover; object-position: center top; }
+  .team-card-flower { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 6rem; }
+  .team-card-body { padding: 1.5rem; display: flex; flex-direction: column; gap: 0.5rem; border-top: 0.5px solid var(--rose); }
+  .team-card-role { font-size: 0.6rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--deep-rose); }
+  .team-card-name { font-family: var(--serif); font-size: 1.3rem; font-weight: 400; color: var(--bark); }
+  .team-card-bio { font-size: 0.8rem; line-height: 1.8; color: var(--mink); font-weight: 300; margin-top: 0.25rem; }
+  .team-card-flower-name { font-size: 0.65rem; letter-spacing: 0.12em; color: var(--rose); margin-top: 0.25rem; display: flex; align-items: center; gap: 0.4rem; }
+  .team-card-flower-name::before { content: ''; display: inline-block; width: 1rem; height: 0.5px; background: var(--rose); }
+  .team-more { border: 0.5px dashed var(--rose); background: transparent; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.75rem; padding: 2rem; min-height: 200px; }
+  .team-more-icon { font-size: 2.5rem; opacity: 0.5; }
+  .team-more-text { font-family: var(--serif); font-size: 1rem; font-style: italic; color: var(--mink); text-align: center; }
+  .contributors { border-top: 0.5px solid var(--rose); padding-top: 2.5rem; display: flex; flex-direction: column; gap: 1rem; }
+  .contributors-title { font-size: 0.62rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--deep-rose); display: flex; align-items: center; gap: 0.75rem; }
+  .contributors-title::before { content: ''; display: inline-block; width: 1.5rem; height: 0.5px; background: var(--deep-rose); }
+  .contributors-list { display: flex; flex-wrap: wrap; gap: 0.6rem 2rem; }
+  .contributor-name { font-family: var(--serif); font-size: 1rem; font-weight: 300; color: var(--mink); font-style: italic; }
+  .contributor-name::before { content: '· '; color: var(--rose); }
+
+  @media (max-width: 900px) {
+    .team-sec { padding: 4rem 2rem; }
+    .team-cards { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 768px) {
+    nav { padding: 1rem 1.25rem; }
+    .nav-links { display: none; }
+    .nav-btn { font-size: 0.6rem; padding: 0.45rem 0.9rem; }
+    .nav-user { display: none; }
+    .hero { grid-template-columns: 1fr; min-height: auto; padding-top: 4.5rem; }
+    .hero-left { padding: 2rem 1.5rem 2rem; gap: 1.25rem; }
+    .hero-title { font-size: 2.8rem; }
+    .hero-right { height: 55vw; min-height: 260px; }
+    .hero-mag { width: 180px; height: 240px; }
+    .mag-bloom { font-size: 4rem; }
+    .divider { padding: 0 1.5rem; margin: 2.5rem 0; }
+    .div-text { font-size: 0.85rem; }
+    .about-sec { grid-template-columns: 1fr; padding: 3rem 1.5rem; gap: 2rem; }
+    .about-circle { width: 160px; height: 160px; font-size: 4rem; }
+    .team-sec { padding: 3rem 1.5rem; }
+    .team-cards { grid-template-columns: 1fr; gap: 1.5rem; }
+    .team-card-img { height: 220px; }
+    .issues-sec { padding: 3rem 1.5rem; }
+    .issues-grid { grid-template-columns: 1fr; gap: 1.25rem; }
+    .join-banner { flex-direction: column; padding: 1.5rem; }
+    .join-btns { flex-direction: column; width: 100%; }
+    .join-btns .cta { width: 100%; text-align: center; }
+    .members-page { padding: 6rem 1.5rem 3rem; }
+    .members-grid { grid-template-columns: 1fr; gap: 1.25rem; }
+    .social-sec { padding: 3rem 1.5rem; gap: 2rem; }
+    .social-links { flex-direction: column; align-items: center; }
+    .social-link { width: 100%; max-width: 280px; }
+    .social-quote { font-size: 1.2rem; padding: 1.5rem 0; }
+    footer { padding: 2rem 1.5rem; flex-direction: column; text-align: center; gap: 0.75rem; }
+    .form-page { padding: 5rem 1.25rem 3rem; }
+    .form-grid { grid-template-columns: 1fr; }
+    .form-field.full { grid-column: 1; }
+    .guidelines-box { padding: 1.25rem; }
+    .contributors-list { gap: 0.4rem 1.25rem; }
+    .auth-box { padding: 2rem 1.5rem; margin: 1rem; }
+    .hero-ctas { flex-direction: column; }
+    .hero-ctas .cta { text-align: center; }
+    .sec-title { font-size: 1.75rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <span class="nav-logo" onclick="showPage('home')">Aurora Bloom</span>
+  <div class="nav-right">
+    <ul class="nav-links">
+      <li><a onclick="goTo('about-sec')">About</a></li>
+      <li><a onclick="goTo('team-sec')">Team</a></li>
+      <li><a onclick="goTo('issues-sec')">Issues</a></li>
+      <li><a onclick="showPage('creative')">Submit</a></li>
+      <li><a onclick="showPage('staff')">Join the team</a></li>
+      <li><a onclick="goTo('social-sec')">Connect</a></li>
+    </ul>
+    <div id="nav-guest" style="display:flex;gap:0.6rem;">
+      <button class="nav-btn ghost" onclick="openAuth('login')">Sign in</button>
+      <button class="nav-btn solid" onclick="openAuth('signup')">Join free</button>
+    </div>
+    <div id="nav-member" style="display:none;align-items:center;gap:0.75rem;">
+      <span class="nav-user" id="nav-greeting"></span>
+      <button class="nav-btn solid" onclick="showPage('members')">My issues</button>
+      <button class="nav-btn ghost" onclick="doSignOut()">Sign out</button>
+    </div>
+  </div>
+</nav>
+
+<!-- AUTH MODAL -->
+<div class="auth-overlay" id="auth-overlay" onclick="overlayClick(event)">
+  <div class="auth-box">
+    <button class="auth-close" onclick="closeAuth()">✕</button>
+    <p class="auth-eyebrow" id="a-eyebrow">Join Aurora Bloom</p>
+    <h2 class="auth-h" id="a-title">Create your <em>account</em></h2>
+    <div class="auth-field" id="a-name-row">
+      <label>Your name</label>
+      <input type="text" id="a-name" placeholder="e.g. Zaibaa" autocomplete="name">
+    </div>
+    <div class="auth-field">
+      <label>Email address</label>
+      <input type="email" id="a-email" placeholder="your@email.com" autocomplete="email">
+    </div>
+    <div class="auth-field">
+      <label>Password</label>
+      <input type="password" id="a-pass" placeholder="At least 6 characters" autocomplete="current-password">
+    </div>
+    <div class="auth-msg" id="a-msg"></div>
+    <button class="auth-submit" id="a-btn" onclick="handleAuth()">Create account</button>
+    <p class="auth-switch" id="a-switch">
+      Already a member? <button onclick="toggleMode()">Sign in instead</button>
+    </p>
+  </div>
+</div>
+
+<!-- ══ HOME PAGE ══ -->
+<div class="page active" id="page-home">
+
+  <section class="hero">
+    <div class="hero-left">
+      <p class="hero-eyebrow">A digital magazine</p>
+      <h1 class="hero-title">Where faith<br>meets <em>beauty</em><br>and style</h1>
+      <p class="hero-sub">Aurora Bloom is a space for all women to explore modest fashion, books, recipes, and the beauty of everyday life — with warmth, creativity, and intention. Founded by a Muslim woman, with a dedicated space for Islamic topics and faith-inspired living.</p>
+      <div class="hero-ctas">
+        <button class="cta solid" onclick="openAuth('signup')">Join for free</button>
+        <button class="cta outline" onclick="goTo('issues-sec')">Browse issues</button>
+      </div>
+    </div>
+    <div class="hero-right">
+      <div class="hero-floral"></div>
+      <div class="petal"></div><div class="petal"></div><div class="petal"></div>
+      <div class="hero-mag">
+        <div class="mag-top">
+          <div class="mag-bloom">🌸</div>
+          <div class="mag-badge"><span>Issue No. 1 &nbsp;·&nbsp; June 2025</span></div>
+        </div>
+        <div class="mag-bottom">
+          <p class="mag-name">Aurora Bloom</p>
+          <div class="mag-rule"></div>
+          <div class="mag-tags">
+            <span class="mag-tag">Modest Fashion</span>
+            <span class="mag-tag">Books</span>
+            <span class="mag-tag">Recipes</span>
+            <span class="mag-tag">Islamic Life</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"><div class="div-line"></div><p class="div-text">For the woman who blooms with intention</p><div class="div-line"></div></div>
+
+  <section class="about-sec" id="about-sec">
+    <div class="about-deco reveal">
+      <div class="about-circle">🌺</div>
+      <div class="about-est">Est. June 2025</div>
+    </div>
+    <div class="about-body reveal">
+      <p class="eyebrow">Our story</p>
+      <h2 class="sec-title">A magazine made<br>with <em>love</em></h2>
+      <p class="body-text">Aurora Bloom was born from a simple belief — that every woman deserves a space that celebrates who she is, in full. A space where modest fashion is elevated, where books are savoured, where recipes carry heritage, and where faith is lived beautifully. Founded by a Muslim woman and rooted in Islamic values, Aurora Bloom warmly welcomes all women to its pages.</p>
+      <p class="body-text">Published bi-monthly, each issue is crafted with care and intention. Whether you're here for outfit inspiration, a good read, a new recipe, or a quiet reflection — you belong here.</p>
+      <div class="pillars">
+        <span class="pillar">Modest Fashion</span>
+        <span class="pillar">Books & Reading</span>
+        <span class="pillar">Recipes</span>
+        <span class="pillar">Islamic Topics</span>
+        <span class="pillar">Creative Living</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- TEAM SECTION -->
+  <section class="team-sec" id="team-sec">
+    <div class="team-hd reveal">
+      <p class="eyebrow">The people behind the pages</p>
+      <h2 class="sec-title">Meet the <em>team</em></h2>
+    </div>
+    <div class="team-cards">
+      <div class="team-card reveal" style="transition-delay:0.1s">
+        <div class="team-card-img" style="background:#edf4f8">
+          <svg viewBox="0 0 200 260" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%">
+            <line x1="100" y1="245" x2="88" y2="155" stroke="#5a7a4a" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="100" y1="245" x2="100" y2="148" stroke="#5a7a4a" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="100" y1="245" x2="112" y2="152" stroke="#5a7a4a" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="100" y1="245" x2="75" y2="162" stroke="#5a7a4a" stroke-width="2" stroke-linecap="round"/>
+            <line x1="100" y1="245" x2="125" y2="158" stroke="#5a7a4a" stroke-width="2" stroke-linecap="round"/>
+            <path d="M86 210 Q70 195 74 178 Q84 193 88 208Z" fill="#6a8f58" opacity="0.9"/>
+            <path d="M114 206 Q130 190 126 173 Q116 189 112 204Z" fill="#6a8f58" opacity="0.9"/>
+            <path d="M100 148 Q93 130 95 112 Q101 125 105 112 Q108 125 106 148Z" fill="#3a6fb5" opacity="0.95"/>
+            <path d="M95 143 Q85 128 88 110 Q94 122 98 143Z" fill="#2a5a9e" opacity="0.85"/>
+            <path d="M105 143 Q115 128 112 110 Q106 122 102 143Z" fill="#2a5a9e" opacity="0.85"/>
+            <path d="M88 155 Q81 138 83 120 Q89 132 92 155Z" fill="#4a7fc5" opacity="0.9"/>
+            <path d="M83 150 Q74 135 77 118 Q82 130 86 150Z" fill="#3a6fb5" opacity="0.8"/>
+            <path d="M93 150 Q102 135 99 118 Q94 130 90 150Z" fill="#3a6fb5" opacity="0.8"/>
+            <path d="M112 152 Q105 135 107 117 Q113 129 116 152Z" fill="#4a7fc5" opacity="0.9"/>
+            <path d="M107 147 Q98 132 101 115 Q106 127 110 147Z" fill="#3a6fb5" opacity="0.8"/>
+            <path d="M117 147 Q126 132 123 115 Q118 127 114 147Z" fill="#3a6fb5" opacity="0.8"/>
+            <path d="M75 162 Q68 146 71 130 Q77 141 79 162Z" fill="#7aaed8" opacity="0.85"/>
+            <path d="M125 158 Q118 142 121 126 Q127 137 129 158Z" fill="#7aaed8" opacity="0.85"/>
+            <rect x="78" y="238" width="44" height="16" rx="3" fill="#ecddd5" stroke="#d4bfb5" stroke-width="0.5"/>
+            <path d="M88 242 Q78 231 82 226 Q90 233 94 240Z" fill="#e8d0c5" stroke="#d4bcaf" stroke-width="0.5"/>
+            <path d="M112 242 Q122 231 118 226 Q110 233 106 240Z" fill="#e8d0c5" stroke="#d4bcaf" stroke-width="0.5"/>
+            <ellipse cx="100" cy="240" rx="5" ry="4" fill="#f0ddd5"/>
+            <path d="M90 254 Q85 262 80 267" stroke="#e8d0c5" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+            <path d="M110 254 Q115 262 120 267" stroke="#e8d0c5" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="team-card-body">
+          <p class="team-card-role">Editor-in-Chief &amp; Founder</p>
+          <p class="team-card-name">Zaibaa Rawat</p>
+          <p class="team-card-bio">Started Aurora Bloom from a dream and watched it grow into a living magazine. Passionate about creating a space where all women feel seen, celebrated, and inspired — rooted in faith, open to all.</p>
+          <p class="team-card-flower-name">Blue Tulip</p>
+        </div>
+      </div>
+      <div class="team-card reveal" style="transition-delay:0.2s">
+        <div class="team-card-img" style="background:#f8eee8">
+          <svg viewBox="0 0 200 260" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%">
+            <line x1="100" y1="245" x2="88" y2="158" stroke="#5a7a4a" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="100" y1="245" x2="100" y2="150" stroke="#5a7a4a" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="100" y1="245" x2="113" y2="155" stroke="#5a7a4a" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="100" y1="245" x2="74" y2="165" stroke="#5a7a4a" stroke-width="2" stroke-linecap="round"/>
+            <line x1="100" y1="245" x2="126" y2="160" stroke="#5a7a4a" stroke-width="2" stroke-linecap="round"/>
+            <path d="M86 212 Q68 196 72 178 Q83 194 88 210Z" fill="#6a8f58" opacity="0.9"/>
+            <path d="M115 208 Q133 190 128 172 Q117 188 113 206Z" fill="#6a8f58" opacity="0.9"/>
+            <path d="M100 155 Q88 148 86 138 Q92 132 100 135 Q108 132 114 138 Q112 148 100 155Z" fill="#c0392b" opacity="0.9"/>
+            <path d="M100 148 Q90 142 89 134 Q95 128 100 130 Q105 128 111 134 Q110 142 100 148Z" fill="#a93226" opacity="0.95"/>
+            <path d="M100 142 Q92 137 92 130 Q96 125 100 127 Q104 125 108 130 Q108 137 100 142Z" fill="#922b21" opacity="0.95"/>
+            <ellipse cx="100" cy="127" rx="7" ry="6" fill="#7b241c"/>
+            <path d="M86 148 Q77 140 79 130 Q86 134 87 146Z" fill="#cd6155" opacity="0.85"/>
+            <path d="M114 148 Q123 140 121 130 Q114 134 113 146Z" fill="#cd6155" opacity="0.85"/>
+            <path d="M93 158 Q86 166 89 174 Q97 167 95 158Z" fill="#cd6155" opacity="0.75"/>
+            <path d="M107 158 Q114 166 111 174 Q103 167 105 158Z" fill="#cd6155" opacity="0.75"/>
+            <path d="M88 162 Q76 155 75 146 Q81 140 88 143 Q95 140 100 146 Q98 155 88 162Z" fill="#c0392b" opacity="0.85"/>
+            <path d="M88 156 Q78 150 78 142 Q83 137 88 139 Q93 137 98 142 Q97 150 88 156Z" fill="#a93226" opacity="0.9"/>
+            <ellipse cx="88" cy="139" rx="6" ry="5" fill="#7b241c"/>
+            <path d="M113 158 Q125 151 126 142 Q120 136 113 139 Q106 136 101 142 Q103 151 113 158Z" fill="#c0392b" opacity="0.85"/>
+            <path d="M113 152 Q123 146 123 138 Q118 133 113 135 Q108 133 103 138 Q104 146 113 152Z" fill="#a93226" opacity="0.9"/>
+            <ellipse cx="113" cy="135" rx="6" ry="5" fill="#7b241c"/>
+            <path d="M74 170 Q62 163 62 154 Q68 148 74 151 Q80 148 85 154 Q83 163 74 170Z" fill="#c0392b" opacity="0.8"/>
+            <ellipse cx="74" cy="151" rx="5" ry="4" fill="#7b241c"/>
+            <path d="M126 165 Q138 158 138 149 Q132 143 126 146 Q120 143 115 149 Q117 158 126 165Z" fill="#c0392b" opacity="0.8"/>
+            <ellipse cx="126" cy="146" rx="5" ry="4" fill="#7b241c"/>
+            <rect x="78" y="238" width="44" height="16" rx="3" fill="#ecddd5" stroke="#d4bfb5" stroke-width="0.5"/>
+            <path d="M88 242 Q78 231 82 226 Q90 233 94 240Z" fill="#e8d0c5" stroke="#d4bcaf" stroke-width="0.5"/>
+            <path d="M112 242 Q122 231 118 226 Q110 233 106 240Z" fill="#e8d0c5" stroke="#d4bcaf" stroke-width="0.5"/>
+            <ellipse cx="100" cy="240" rx="5" ry="4" fill="#f0ddd5"/>
+            <path d="M90 254 Q85 262 80 267" stroke="#e8d0c5" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+            <path d="M110 254 Q115 262 120 267" stroke="#e8d0c5" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="team-card-body">
+          <p class="team-card-role">Writer</p>
+          <p class="team-card-name">Aaliyah Monga</p>
+        <div class="team-card-body">
+          <p class="team-card-role">Writer</p>
+          <p class="team-card-name">Aaliyah Monga</p>
+          <p class="team-card-bio">A writer with a passion for storytelling and celebrating the beauty of everyday Muslim life through words.</p>
+          <p class="team-card-flower-name">Red Rose</p>
+        </div>
+      </div>
+      <div class="team-card reveal" style="transition-delay:0.3s">
+        <div class="team-card-img" style="background:#f0eef8">
+          <svg viewBox="0 0 200 260" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%">
+            <line x1="100" y1="245" x2="100" y2="150" stroke="#5a7a4a" stroke-width="3.5" stroke-linecap="round"/>
+            <line x1="100" y1="245" x2="78" y2="175" stroke="#5a7a4a" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="100" y1="245" x2="122" y2="172" stroke="#5a7a4a" stroke-width="2.5" stroke-linecap="round"/>
+            <path d="M92 210 Q72 192 76 172 Q88 190 94 208Z" fill="#6a8f58" opacity="0.9"/>
+            <path d="M108 206 Q128 188 124 168 Q112 186 106 204Z" fill="#6a8f58" opacity="0.9"/>
+            <circle cx="100" cy="148" r="6" fill="#8b65b5" opacity="0.9"/>
+            <circle cx="112" cy="152" r="5.5" fill="#7b5ea8" opacity="0.9"/>
+            <circle cx="88" cy="152" r="5.5" fill="#7b5ea8" opacity="0.9"/>
+            <circle cx="100" cy="138" r="5.5" fill="#9070c0" opacity="0.9"/>
+            <circle cx="111" cy="141" r="5" fill="#8b65b5" opacity="0.85"/>
+            <circle cx="89" cy="141" r="5" fill="#8b65b5" opacity="0.85"/>
+            <circle cx="100" cy="128" r="5" fill="#9878c5" opacity="0.9"/>
+            <circle cx="110" cy="131" r="4.5" fill="#9070bc" opacity="0.85"/>
+            <circle cx="90" cy="131" r="4.5" fill="#9070bc" opacity="0.85"/>
+            <circle cx="100" cy="119" r="4.5" fill="#a080cc" opacity="0.85"/>
+            <circle cx="109" cy="122" r="4" fill="#9878c5" opacity="0.85"/>
+            <circle cx="91" cy="122" r="4" fill="#9878c5" opacity="0.85"/>
+            <circle cx="100" cy="110" r="4" fill="#aa88d0" opacity="0.85"/>
+            <circle cx="108" cy="113" r="3.5" fill="#a080cc" opacity="0.8"/>
+            <circle cx="92" cy="113" r="3.5" fill="#a080cc" opacity="0.8"/>
+            <circle cx="100" cy="102" r="3.5" fill="#b490d5" opacity="0.8"/>
+            <circle cx="107" cy="105" r="3" fill="#aa88d0" opacity="0.75"/>
+            <circle cx="93" cy="105" r="3" fill="#aa88d0" opacity="0.75"/>
+            <circle cx="78" cy="173" r="5" fill="#8b65b5" opacity="0.85"/>
+            <circle cx="88" cy="170" r="5" fill="#7b5ea8" opacity="0.85"/>
+            <circle cx="78" cy="163" r="4.5" fill="#9070bc" opacity="0.8"/>
+            <circle cx="87" cy="160" r="4.5" fill="#8b65b5" opacity="0.8"/>
+            <circle cx="79" cy="153" r="4" fill="#9878c5" opacity="0.78"/>
+            <circle cx="87" cy="150" r="4" fill="#9070bc" opacity="0.78"/>
+            <circle cx="80" cy="143" r="3.5" fill="#a080cc" opacity="0.75"/>
+            <circle cx="122" cy="170" r="5" fill="#8b65b5" opacity="0.85"/>
+            <circle cx="112" cy="167" r="5" fill="#7b5ea8" opacity="0.85"/>
+            <circle cx="122" cy="160" r="4.5" fill="#9070bc" opacity="0.8"/>
+            <circle cx="113" cy="157" r="4.5" fill="#8b65b5" opacity="0.8"/>
+            <circle cx="121" cy="150" r="4" fill="#9878c5" opacity="0.78"/>
+            <circle cx="113" cy="147" r="4" fill="#9070bc" opacity="0.78"/>
+            <circle cx="120" cy="140" r="3.5" fill="#a080cc" opacity="0.75"/>
+            <rect x="78" y="238" width="44" height="16" rx="3" fill="#ecddd5" stroke="#d4bfb5" stroke-width="0.5"/>
+            <path d="M88 242 Q78 231 82 226 Q90 233 94 240Z" fill="#e8d0c5" stroke="#d4bcaf" stroke-width="0.5"/>
+            <path d="M112 242 Q122 231 118 226 Q110 233 106 240Z" fill="#e8d0c5" stroke="#d4bcaf" stroke-width="0.5"/>
+            <ellipse cx="100" cy="240" rx="5" ry="4" fill="#f0ddd5"/>
+            <path d="M90 254 Q85 262 80 267" stroke="#e8d0c5" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+            <path d="M110 254 Q115 262 120 267" stroke="#e8d0c5" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="team-card-body">
+          <p class="team-card-role">Art Reviewer</p>
+          <p class="team-card-name">Saturn</p>
+          <p class="team-card-bio">Photographer and creative. Loves books, art, bubble tea, and long chats with friends.</p>
+          <p class="team-card-flower-name">Hyacinth</p>
+        </div>
+      </div>
+      <div class="team-card reveal" style="transition-delay:0.1s">
+        <div class="team-card-img" style="background:#f8eef4">
+          <svg viewBox="0 0 200 260" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%">
+            <line x1="100" y1="245" x2="100" y2="162" stroke="#5a7a4a" stroke-width="3" stroke-linecap="round"/>
+            <line x1="100" y1="245" x2="80" y2="178" stroke="#5a7a4a" stroke-width="2" stroke-linecap="round"/>
+            <line x1="100" y1="245" x2="120" y2="175" stroke="#5a7a4a" stroke-width="2" stroke-linecap="round"/>
+            <path d="M90 215 Q72 198 76 180 Q87 196 92 213Z" fill="#6a8f58" opacity="0.9"/>
+            <path d="M110 211 Q128 193 123 175 Q112 192 108 209Z" fill="#6a8f58" opacity="0.9"/>
+            <ellipse cx="100" cy="128" rx="9" ry="24" fill="#c4547e" opacity="0.75"/>
+            <ellipse cx="100" cy="128" rx="9" ry="24" fill="#c4547e" opacity="0.75" transform="rotate(30 100 140)"/>
+            <ellipse cx="100" cy="128" rx="9" ry="24" fill="#c4547e" opacity="0.75" transform="rotate(60 100 140)"/>
+            <ellipse cx="100" cy="128" rx="9" ry="24" fill="#c4547e" opacity="0.75" transform="rotate(90 100 140)"/>
+            <ellipse cx="100" cy="128" rx="9" ry="24" fill="#c4547e" opacity="0.75" transform="rotate(120 100 140)"/>
+            <ellipse cx="100" cy="128" rx="9" ry="24" fill="#c4547e" opacity="0.75" transform="rotate(150 100 140)"/>
+            <ellipse cx="100" cy="128" rx="9" ry="24" fill="#c4547e" opacity="0.75" transform="rotate(180 100 140)"/>
+            <ellipse cx="100" cy="128" rx="9" ry="24" fill="#c4547e" opacity="0.75" transform="rotate(210 100 140)"/>
+            <ellipse cx="100" cy="128" rx="9" ry="24" fill="#c4547e" opacity="0.75" transform="rotate(240 100 140)"/>
+            <ellipse cx="100" cy="128" rx="9" ry="24" fill="#c4547e" opacity="0.75" transform="rotate(270 100 140)"/>
+            <ellipse cx="100" cy="128" rx="9" ry="24" fill="#c4547e" opacity="0.75" transform="rotate(300 100 140)"/>
+            <ellipse cx="100" cy="128" rx="9" ry="24" fill="#c4547e" opacity="0.75" transform="rotate(330 100 140)"/>
+            <ellipse cx="100" cy="133" rx="7" ry="18" fill="#b03870" opacity="0.85" transform="rotate(15 100 140)"/>
+            <ellipse cx="100" cy="133" rx="7" ry="18" fill="#b03870" opacity="0.85" transform="rotate(45 100 140)"/>
+            <ellipse cx="100" cy="133" rx="7" ry="18" fill="#b03870" opacity="0.85" transform="rotate(75 100 140)"/>
+            <ellipse cx="100" cy="133" rx="7" ry="18" fill="#b03870" opacity="0.85" transform="rotate(105 100 140)"/>
+            <ellipse cx="100" cy="133" rx="7" ry="18" fill="#b03870" opacity="0.85" transform="rotate(135 100 140)"/>
+            <ellipse cx="100" cy="133" rx="7" ry="18" fill="#b03870" opacity="0.85" transform="rotate(165 100 140)"/>
+            <ellipse cx="100" cy="133" rx="7" ry="18" fill="#b03870" opacity="0.85" transform="rotate(195 100 140)"/>
+            <ellipse cx="100" cy="133" rx="7" ry="18" fill="#b03870" opacity="0.85" transform="rotate(225 100 140)"/>
+            <ellipse cx="100" cy="133" rx="7" ry="18" fill="#b03870" opacity="0.85" transform="rotate(255 100 140)"/>
+            <ellipse cx="100" cy="133" rx="7" ry="18" fill="#b03870" opacity="0.85" transform="rotate(285 100 140)"/>
+            <ellipse cx="100" cy="133" rx="7" ry="18" fill="#b03870" opacity="0.85" transform="rotate(315 100 140)"/>
+            <ellipse cx="100" cy="133" rx="7" ry="18" fill="#b03870" opacity="0.85" transform="rotate(345 100 140)"/>
+            <ellipse cx="100" cy="136" rx="5" ry="12" fill="#8c1f52" opacity="0.9" transform="rotate(0 100 140)"/>
+            <ellipse cx="100" cy="136" rx="5" ry="12" fill="#8c1f52" opacity="0.9" transform="rotate(36 100 140)"/>
+            <ellipse cx="100" cy="136" rx="5" ry="12" fill="#8c1f52" opacity="0.9" transform="rotate(72 100 140)"/>
+            <ellipse cx="100" cy="136" rx="5" ry="12" fill="#8c1f52" opacity="0.9" transform="rotate(108 100 140)"/>
+            <ellipse cx="100" cy="136" rx="5" ry="12" fill="#8c1f52" opacity="0.9" transform="rotate(144 100 140)"/>
+            <ellipse cx="100" cy="136" rx="5" ry="12" fill="#8c1f52" opacity="0.9" transform="rotate(180 100 140)"/>
+            <ellipse cx="100" cy="136" rx="5" ry="12" fill="#8c1f52" opacity="0.9" transform="rotate(216 100 140)"/>
+            <ellipse cx="100" cy="136" rx="5" ry="12" fill="#8c1f52" opacity="0.9" transform="rotate(252 100 140)"/>
+            <ellipse cx="100" cy="136" rx="5" ry="12" fill="#8c1f52" opacity="0.9" transform="rotate(288 100 140)"/>
+            <ellipse cx="100" cy="136" rx="5" ry="12" fill="#8c1f52" opacity="0.9" transform="rotate(324 100 140)"/>
+            <circle cx="100" cy="140" r="10" fill="#6b1040" opacity="0.95"/>
+            <circle cx="100" cy="140" r="4" fill="#f5dce8" opacity="0.35"/>
+            <rect x="78" y="238" width="44" height="16" rx="3" fill="#ecddd5" stroke="#d4bfb5" stroke-width="0.5"/>
+            <path d="M88 242 Q78 231 82 226 Q90 233 94 240Z" fill="#e8d0c5" stroke="#d4bcaf" stroke-width="0.5"/>
+            <path d="M112 242 Q122 231 118 226 Q110 233 106 240Z" fill="#e8d0c5" stroke="#d4bcaf" stroke-width="0.5"/>
+            <ellipse cx="100" cy="240" rx="5" ry="4" fill="#f0ddd5"/>
+            <path d="M90 254 Q85 262 80 267" stroke="#e8d0c5" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+            <path d="M110 254 Q115 262 120 267" stroke="#e8d0c5" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="team-card-body">
+          <p class="team-card-role">Writer</p>
+          <p class="team-card-name">Faathima Zahra Sabjee</p>
+        <div class="team-card-body">
+          <p class="team-card-role">Writer</p>
+          <p class="team-card-name">Faathima Zahra Sabjee</p>
+          <p class="team-card-bio">Writes about softness, femininity, modesty, self growth, and the emotional side of everyday life. Creates pieces that feel comforting and relatable for girls navigating life, identity, and deen in today's world.</p>
+          <p class="team-card-flower-name">Dahlia</p>
+        </div>
+      </div>
+
+      <div class="team-card team-more reveal" style="transition-delay:0.2s">
+        <div class="team-more-icon">🌸</div>
+        <p class="team-more-text">More blooms joining soon</p>
+      </div>
+    </div>
+    <div class="contributors reveal">
+      <p class="contributors-title">Contributors</p>
+      <div class="contributors-list">
+        <span class="contributor-name">Saleha Bhyat</span>
+        <span class="contributor-name">Yumna Gangat</span>
+        <span class="contributor-name">Sumayya Dawjee</span>
+        <span class="contributor-name">Lyra</span>
+        <span class="contributor-name">Aathika Shaik Rawat</span>
+        <span class="contributor-name">Ahlam Faris</span>
+        <span class="contributor-name">Fathima Zahra Rawat</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="issues-sec" id="issues-sec">
+    <div class="issues-hd reveal">
+      <p class="eyebrow">The archive</p>
+      <h2 class="sec-title">Latest <em>issues</em></h2>
+    </div>
+    <div class="issues-grid">
+      <div class="issue-card reveal" style="transition-delay:0.1s" onclick="openAuth('signup')">
+        <div class="issue-cover" style="background:linear-gradient(135deg,#f5e0dc,#e8b4aa)"><span>🌸</span><span class="issue-no">Issue 01</span></div>
+        <div class="issue-body">
+          <p class="issue-date">June 8, 2025</p>
+          <p class="issue-name">Warmth Within</p>
+          <p class="issue-blurb">A reminder that the softest heat is the one you learn to carry inside your own ribs.</p>
+          <span class="issue-cta">Members only</span>
+        </div>
+        <div class="lock-veil"><span class="lock-icon">🔒</span><span class="lock-label">Join to read</span></div>
+      </div>
+      <div class="issue-card reveal" style="transition-delay:0.2s" onclick="openAuth('signup')">
+        <div class="issue-cover" style="background:linear-gradient(135deg,#dce8dc,#b5c4b1)"><span>🌿</span><span class="issue-no">Issue 02</span></div>
+        <div class="issue-body">
+          <p class="issue-date">August 2025</p>
+          <p class="issue-name">Emerging Light</p>
+          <p class="issue-blurb">The quiet moment when you realize you are no longer in the dark, you are becoming the dawn.</p>
+          <span class="issue-cta">Members only</span>
+        </div>
+        <div class="lock-veil"><span class="lock-icon">🔒</span><span class="lock-label">Join to read</span></div>
+      </div>
+      <div class="issue-card reveal" style="transition-delay:0.3s" onclick="openAuth('signup')">
+        <div class="issue-cover" style="background:linear-gradient(135deg,#e0ddf5,#b4b0e8)"><span>🌙</span><span class="issue-no">Issue 03</span></div>
+        <div class="issue-body">
+          <p class="issue-date">October 2025</p>
+          <p class="issue-name">Girlhood Glow</p>
+          <p class="issue-blurb">Where tenderness, curiosity, and becoming are allowed to be loud in their gentleness.</p>
+          <span class="issue-cta">Members only</span>
+        </div>
+        <div class="lock-veil"><span class="lock-icon">🔒</span><span class="lock-label">Join to read</span></div>
+      </div>
+      <div class="issue-card reveal" style="transition-delay:0.1s" onclick="openAuth('signup')">
+        <div class="issue-cover" style="background:linear-gradient(135deg,#f5e8dc,#e8c4aa)"><span>✨</span><span class="issue-no">Issue 04</span></div>
+        <div class="issue-body">
+          <p class="issue-date">December 2025</p>
+          <p class="issue-name">Radiate and Reflect</p>
+          <p class="issue-blurb">Learning when to shine outward and when to turn inward and listen.</p>
+          <span class="issue-cta">Members only</span>
+        </div>
+        <div class="lock-veil"><span class="lock-icon">🔒</span><span class="lock-label">Join to read</span></div>
+      </div>
+      <div class="issue-card reveal" style="transition-delay:0.2s" onclick="openAuth('signup')">
+        <div class="issue-cover" style="background:linear-gradient(135deg,#dcebf5,#aac4e8)"><span>🕊️</span><span class="issue-no">Issue 05</span></div>
+        <div class="issue-body">
+          <p class="issue-date">February 2026</p>
+          <p class="issue-name">Serenity Season</p>
+          <p class="issue-blurb">Choosing peace on purpose, even when the world is auditioning for chaos.</p>
+          <span class="issue-cta">Members only</span>
+        </div>
+        <div class="lock-veil"><span class="lock-icon">🔒</span><span class="lock-label">Join to read</span></div>
+      </div>
+      <div class="issue-card reveal" style="transition-delay:0.3s" onclick="openAuth('signup')">
+        <div class="issue-cover" style="background:linear-gradient(135deg,#e8f5e0,#b5e8aa)"><span>🌱</span><span class="issue-no">Issue 06</span></div>
+        <div class="issue-body">
+          <p class="issue-date">April 2026</p>
+          <p class="issue-name">Rooted and Rising</p>
+          <p class="issue-blurb">Growing upward without forgetting the soil that made you.</p>
+          <span class="issue-cta">Members only</span>
+        </div>
+        <div class="lock-veil"><span class="lock-icon">🔒</span><span class="lock-label">Join to read</span></div>
+      </div>
+    </div>
+    <div class="join-banner reveal">
+      <div class="join-text">
+        <p class="join-title">Ready to bloom with us?</p>
+        <p class="join-sub">Create a free account to access every issue of Aurora Bloom.</p>
+      </div>
+      <div class="join-btns">
+        <button class="cta solid" onclick="openAuth('signup')">Join free</button>
+        <button class="cta outline" onclick="openAuth('login')">Sign in</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="social-sec" id="social-sec">
+    <div class="social-hd reveal">
+      <p class="eyebrow">Stay connected</p>
+      <h2 class="sec-title">Find us <em>online</em></h2>
+    </div>
+    <blockquote class="social-quote reveal">"A bloom is not a single petal — it is everything unfurling at once, in its own time."</blockquote>
+    <div class="social-links reveal">
+      <a href="https://www.instagram.com/aurorabloommagazine" target="_blank" rel="noopener" class="social-link"><span class="soc-icon">📷</span> Instagram</a>
+      <a href="https://pin.it/3fvuFSGaT" target="_blank" rel="noopener" class="social-link"><span class="soc-icon">📌</span> Pinterest</a>
+      <a href="https://www.tiktok.com/@aurora.bloom.mag" target="_blank" rel="noopener" class="social-link"><span class="soc-icon">🎵</span> TikTok</a>
+      <a href="https://substack.com/@aurorabloomblog" target="_blank" rel="noopener" class="social-link"><span class="soc-icon">📝</span> Substack</a>
+      <a href="mailto:aurorabloommagazine@gmail.com" class="social-link"><span class="soc-icon">✉️</span> Get in touch</a>
+    </div>
+  </section>
+
+  <footer>
+    <p class="ft-logo">Aurora Bloom</p>
+    <p class="ft-copy">© 2025 Aurora Bloom · All rights reserved</p>
+    <p class="ft-tag">Blooming bi-monthly, with love.</p>
+  </footer>
+</div>
+
+<!-- ══ MEMBERS PAGE ══ -->
+<div class="page" id="page-members">
+  <div class="members-page">
+    <div class="members-hd">
+      <p class="eyebrow">Members archive</p>
+      <h1 class="sec-title">All <em>issues</em></h1>
+      <p class="welcome-msg">Welcome back, <span class="welcome-name" id="member-name"></span> — happy reading 🌸</p>
+    </div>
+    <div class="members-grid">
+      <div class="member-card" onclick="window.open('https://heyzine.com/flip-book/55a5810bcf.html','_blank')">
+        <div class="issue-cover" style="background:linear-gradient(135deg,#f5e0dc,#e8b4aa);position:relative;overflow:hidden;height:200px;">
+          <img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/7QBsUGhvdG9zaG9wIDMuMAA4QklNBAQAAAAAAFAcAigASkZCTUQwZjAwMDc1OTAxMDAwMDhjMmQwMDAwMmZhMTAwMDA0OGE3MDAwMDRhYjAwMDAwNDQxYTAxMDA0NzlmMDEwMGVmYmIwMTAwAP/CABQAAQABAgMFBQ==" alt="Issue 01" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0.85;">
+          <span class="issue-no" style="position:absolute;top:1rem;left:1rem;">Issue 01</span>
+        </div>
+        <div class="issue-body">
+          <p class="issue-date">June 8, 2025</p>
+          <p class="issue-name">Warmth Within</p>
+          <p class="issue-blurb">A reminder that the softest heat is the one you learn to carry inside your own ribs.</p>
+          <span class="issue-cta">Read now</span>
+        </div>
+      </div>
+      <div class="member-card" onclick="window.open('https://heyzine.com/flip-book/88b476357c.html','_blank')">
+        <div class="issue-cover" style="background:linear-gradient(135deg,#dce8dc,#b5c4b1)"><span>🌿</span><span class="issue-no">Issue 02</span></div>
+        <div class="issue-body">
+          <p class="issue-date">August 2025</p>
+          <p class="issue-name">Emerging Light</p>
+          <p class="issue-blurb">The quiet moment when you realize you are no longer in the dark, you are becoming the dawn.</p>
+          <span class="issue-cta">Read now</span>
+        </div>
+      </div>
+      <div class="member-card" onclick="window.open('https://heyzine.com/flip-book/ce89d4de60.html','_blank')">
+        <div class="issue-cover" style="background:linear-gradient(135deg,#e0ddf5,#b4b0e8)"><span>🌙</span><span class="issue-no">Issue 03</span></div>
+        <div class="issue-body">
+          <p class="issue-date">October 2025</p>
+          <p class="issue-name">Girlhood Glow</p>
+          <p class="issue-blurb">Where tenderness, curiosity, and becoming are allowed to be loud in their gentleness.</p>
+          <span class="issue-cta">Read now</span>
+        </div>
+      </div>
+      <div class="member-card" onclick="window.open('https://heyzine.com/flip-book/3333c0b9c1.html','_blank')">
+        <div class="issue-cover" style="background:linear-gradient(135deg,#f5e8dc,#e8c4aa)"><span>✨</span><span class="issue-no">Issue 04</span></div>
+        <div class="issue-body">
+          <p class="issue-date">December 2025</p>
+          <p class="issue-name">Radiate and Reflect</p>
+          <p class="issue-blurb">Learning when to shine outward and when to turn inward and listen.</p>
+          <span class="issue-cta">Read now</span>
+        </div>
+      </div>
+      <div class="member-card" onclick="window.open('https://heyzine.com/flip-book/ba412f1c49.html','_blank')">
+        <div class="issue-cover" style="background:linear-gradient(135deg,#dcebf5,#aac4e8)"><span>🕊️</span><span class="issue-no">Issue 05</span></div>
+        <div class="issue-body">
+          <p class="issue-date">February 2026</p>
+          <p class="issue-name">Serenity Season</p>
+          <p class="issue-blurb">Choosing peace on purpose, even when the world is auditioning for chaos.</p>
+          <span class="issue-cta">Read now</span>
+        </div>
+      </div>
+      <div class="member-card" onclick="window.open('https://heyzine.com/flip-book/8912da21a1.html','_blank')">
+        <div class="issue-cover" style="background:linear-gradient(135deg,#e8f5e0,#b5e8aa)"><span>🌱</span><span class="issue-no">Issue 06</span></div>
+        <div class="issue-body">
+          <p class="issue-date">April 2026</p>
+          <p class="issue-name">Rooted and Rising</p>
+          <p class="issue-blurb">Growing upward without forgetting the soil that made you.</p>
+          <span class="issue-cta">Read now</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <footer>
+    <p class="ft-logo">Aurora Bloom</p>
+    <p class="ft-copy">© 2025 Aurora Bloom · All rights reserved</p>
+    <p class="ft-tag">Blooming bi-monthly, with love.</p>
+  </footer>
+</div>
+
+<!-- ══ CREATIVE SUBMISSIONS PAGE ══ -->
+<div class="page" id="page-creative">
+  <div class="form-page">
+    <div class="form-page-inner">
+      <div class="form-hero">
+        <p class="eyebrow">Creative Bloom</p>
+        <h1 class="form-hero-title">Share your <em>light</em> with us</h1>
+        <p class="form-intro">Welcome to Aurora Bloom's Creative Bloom — a cozy, inspiring space where your creativity is celebrated. Whether you write from the heart, paint with purpose, or capture beauty through your lens, we'd love to showcase your work!</p>
+      </div>
+
+      <div class="form-rules">
+        <div class="form-rule-block">
+          <p class="form-rule-title">✨ What you can submit</p>
+          <ul class="form-rule-list">
+            <li>Poetry (up to 40 lines)</li>
+            <li>Short stories (max 2,000 words)</li>
+            <li>Personal reflections or journal-style pieces (400–800 words)</li>
+            <li>Original photography or digital artwork</li>
+            <li>Islamic calligraphy or visual art inspired by modesty, spirituality, or sisterhood</li>
+          </ul>
+        </div>
+        <div class="form-rule-block">
+          <p class="form-rule-title">🌷 What we're looking for</p>
+          <ul class="form-rule-list">
+            <li>Original work — if previously published, please let us know where</li>
+            <li>Respectful, uplifting, and reflective work</li>
+          </ul>
+        </div>
+        <div class="form-rule-block">
+          <p class="form-rule-title">🚫 What to avoid</p>
+          <ul class="form-rule-list">
+            <li class="avoid">Content with explicit, inappropriate, or insensitive themes</li>
+            <li class="avoid">Plagiarised or AI-generated submissions</li>
+          </ul>
+        </div>
+      </div>
+
+      <div id="creative-form-wrap">
+        <div class="form-section">
+          <p class="form-section-title">About you</p>
+          <div class="form-grid">
+            <div class="form-field">
+              <label>Name or pen name <span>*</span></label>
+              <input type="text" id="cs-name" placeholder="Your name or pen name">
+            </div>
+            <div class="form-field">
+              <label>Email address <span>*</span></label>
+              <input type="email" id="cs-email" placeholder="your@email.com">
+            </div>
+            <div class="form-field">
+              <label>Age <span>*</span></label>
+              <input type="number" id="cs-age" placeholder="e.g. 20" min="1" max="99">
+            </div>
+            <div class="form-field">
+              <label>Instagram handle</label>
+              <input type="text" id="cs-instagram" placeholder="@username">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <p class="form-section-title">Your submission</p>
+          <div class="form-grid single">
+            <div class="form-field">
+              <label>Has this piece been published before? <span>*</span></label>
+              <div class="form-radio-group">
+                <label class="form-radio"><input type="radio" name="cs-published" value="no"> No, it's original</label>
+                <label class="form-radio"><input type="radio" name="cs-published" value="yes"> Yes, previously published</label>
+              </div>
+            </div>
+            <div class="form-field" id="cs-published-where-field" style="display:none">
+              <label>Where was it published?</label>
+              <input type="text" id="cs-published-where" placeholder="e.g. My personal blog, XYZ magazine">
+            </div>
+            <div class="form-field">
+              <label>Written submission <span style="color:var(--mink);font-style:italic;text-transform:none;letter-spacing:0">(poetry, short story, reflection)</span></label>
+              <textarea id="cs-writing" placeholder="Paste your writing here..."></textarea>
+              <p class="field-note">Poetry up to 40 lines · Short stories max 2,000 words · Reflections 400–800 words</p>
+            </div>
+            <div class="form-field">
+              <label>Art / photography submission</label>
+              <div class="upload-area" onclick="document.getElementById('cs-art-file').click()">
+                <div class="upload-icon">🎨</div>
+                <p class="upload-label">Click to upload your artwork or photography</p>
+                <p class="upload-sub">JPG, PNG, PDF — max 10MB</p>
+                <input type="file" id="cs-art-file" accept="image/*,.pdf" onchange="showFileName('cs-art-file','cs-art-chosen')">
+              </div>
+              <p class="upload-chosen" id="cs-art-chosen"></p>
+            </div>
+            <div class="form-field">
+              <label>Do we have your consent to publish this work? <span>*</span></label>
+              <div class="form-radio-group">
+                <label class="form-radio"><input type="radio" name="cs-consent" value="yes"> Yes, you have my consent</label>
+                <label class="form-radio"><input type="radio" name="cs-consent" value="no"> Not yet — I'd like to discuss first</label>
+              </div>
+            </div>
+            <div class="form-field">
+              <label>Any questions or notes for our team?</label>
+              <textarea id="cs-questions" placeholder="Anything you'd like us to know..." style="min-height:80px"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-msg" id="cs-msg"></div>
+        <button class="form-submit" onclick="submitCreative()">Submit your work 🌸</button>
+        <p style="font-size:0.75rem;color:var(--mink);text-align:center;margin-top:1.25rem;line-height:1.8;">Once submitted, our team will review your piece and get in touch if it's selected for an upcoming issue or blog feature. Let your creativity bloom — we can't wait to see your light 🌸</p>
+      </div>
+
+      <div class="form-success" id="creative-success">
+        <div class="form-success-icon">🌸</div>
+        <p class="form-success-title">Thank you for submitting!</p>
+        <p class="form-success-msg">Your work has reached us safely. Our team will review it with care and get in touch if it's selected for an upcoming issue or blog feature. We're so grateful you chose to share your light with Aurora Bloom.</p>
+      </div>
+    </div>
+  </div>
+  <footer>
+    <p class="ft-logo">Aurora Bloom</p>
+    <p class="ft-copy">© 2025 Aurora Bloom · All rights reserved</p>
+    <p class="ft-tag">Blooming bi-monthly, with love.</p>
+  </footer>
+</div>
+
+<!-- ══ STAFF APPLICATIONS PAGE ══ -->
+<div class="page" id="page-staff">
+  <div class="form-page">
+    <div class="form-page-inner">
+      <div class="form-hero">
+        <p class="eyebrow">Join the team</p>
+        <h1 class="form-hero-title">Work with <em>Aurora Bloom</em></h1>
+        <p class="form-intro">We're so excited you're interested in joining us! Please read each section carefully and fill out the information as best you can. Make sure you have read our guidelines and eligibility requirements for the position(s) you wish to apply for. You can apply for a maximum of <strong>two positions</strong> — no more. Thank you.</p>
+      </div>
+
+      <div class="guidelines-box">
+        <p class="guidelines-title">Guidelines & eligibility</p>
+        <p class="guidelines-text">
+          <strong>All positions are voluntary and therefore unpaid.</strong><br>
+          · Applicants must be between 15–23 years old<br>
+          · Must be willing to dedicate 2–5 hours per week (depends on role)<br>
+          · Must be able to speak English<br>
+          · Must be following us on Instagram<br>
+          · Please only apply for a maximum of two positions
+        </p>
+      </div>
+
+      <div class="form-section">
+        <p class="form-section-title">Available positions</p>
+        <div class="team-section">
+          <div class="team-section-hd">
+            <p class="team-section-name">Design Team</p>
+            <p class="team-section-hrs">1–4 hours per week</p>
+          </div>
+          <div class="team-roles">
+            <div class="team-role"><p class="team-role-name">Graphic Designer</p><p class="team-role-desc">Makes stories, posts, reels and issue designs for the magazine.</p></div>
+            <div class="team-role"><p class="team-role-name">Layout Designer</p><p class="team-role-desc">Works with the graphic designer to also make stories, posts, reels and issue designs for the magazine.</p></div>
+          </div>
+        </div>
+        <div class="team-section">
+          <div class="team-section-hd">
+            <p class="team-section-name">Writing Team</p>
+            <p class="team-section-hrs">2–3 hours per week</p>
+          </div>
+          <div class="team-roles">
+            <p style="font-size:0.78rem;color:var(--mink);margin-bottom:0.75rem;">We need at least one writer for each section:</p>
+            <div style="display:flex;flex-wrap:wrap;gap:0.5rem;">
+              <span class="pillar">Fashion & Beauty</span>
+              <span class="pillar">Books & Interviews</span>
+              <span class="pillar">Lifestyle & Wellness</span>
+              <span class="pillar">Islamic Topics</span>
+              <span class="pillar">Politics</span>
+              <span class="pillar">Finance</span>
+              <span class="pillar">Life Skills</span>
+            </div>
+          </div>
+        </div>
+        <div class="team-section">
+          <div class="team-section-hd">
+            <p class="team-section-name">Social Media Team</p>
+            <p class="team-section-hrs">2–5 hours per week</p>
+          </div>
+          <div class="team-roles">
+            <div class="team-role"><p class="team-role-name">Social Media Director</p><p class="team-role-desc">Reviews posts, stories and reels. Supervises overall social media presence on Instagram, TikTok, Threads and Discord.</p></div>
+            <div class="team-role"><p class="team-role-name">Marketing Director</p><p class="team-role-desc">In charge of the Aurora Bloom brand, monitors competitions, website and social media, working with the entire team and EIC.</p></div>
+            <div class="team-role"><p class="team-role-name">Reels Creator</p><p class="team-role-desc">Creates reels for our Instagram account, works alongside the designers.</p></div>
+            <div class="team-role"><p class="team-role-name">Content Creator</p><p class="team-role-desc">Makes posts and stories working alongside designers. Helps the EIC and Social Media Director with post ideas.</p></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="staff-form-wrap">
+        <div class="form-section">
+          <p class="form-section-title">About you</p>
+          <div class="form-grid">
+            <div class="form-field">
+              <label>Full name <span>*</span></label>
+              <input type="text" id="sa-name" placeholder="Your full name">
+            </div>
+            <div class="form-field">
+              <label>Email address <span>*</span></label>
+              <input type="email" id="sa-email" placeholder="your@email.com">
+            </div>
+            <div class="form-field">
+              <label>Pronouns</label>
+              <input type="text" id="sa-pronouns" placeholder="e.g. she/her">
+            </div>
+            <div class="form-field">
+              <label>Age <span>*</span></label>
+              <input type="number" id="sa-age" placeholder="Must be 15–23" min="15" max="23">
+            </div>
+            <div class="form-field">
+              <label>Location</label>
+              <input type="text" id="sa-location" placeholder="City, Country">
+            </div>
+            <div class="form-field">
+              <label>Instagram handle <span>*</span></label>
+              <input type="text" id="sa-instagram" placeholder="@username">
+            </div>
+            <div class="form-field full">
+              <label>Brief introduction <span>*</span></label>
+              <textarea id="sa-intro" placeholder="Tell us a little about yourself..."></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <p class="form-section-title">Position(s) applying for <span style="font-size:0.75rem;color:var(--mink);font-style:italic;font-family:var(--serif)">(max two)</span></p>
+          <div class="form-grid single">
+            <div class="form-field">
+              <label>Design Team position</label>
+              <select id="sa-design">
+                <option value="">Not applying for design team</option>
+                <option>Graphic Designer</option>
+                <option>Layout Designer</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label>Writing Team section(s)</label>
+              <p class="field-note" style="margin-bottom:0.5rem">Select all writing sections you'd like to write for</p>
+              <div class="form-checkbox-group">
+                <label class="form-checkbox"><input type="checkbox" name="sa-writing" value="Fashion & Beauty"> Fashion & Beauty</label>
+                <label class="form-checkbox"><input type="checkbox" name="sa-writing" value="Books & Interviews"> Books & Interviews</label>
+                <label class="form-checkbox"><input type="checkbox" name="sa-writing" value="Lifestyle & Wellness"> Lifestyle & Wellness</label>
+                <label class="form-checkbox"><input type="checkbox" name="sa-writing" value="Islamic Topics"> Islamic Topics</label>
+                <label class="form-checkbox"><input type="checkbox" name="sa-writing" value="Politics"> Politics</label>
+                <label class="form-checkbox"><input type="checkbox" name="sa-writing" value="Finance"> Finance</label>
+                <label class="form-checkbox"><input type="checkbox" name="sa-writing" value="Life Skills"> Life Skills</label>
+              </div>
+            </div>
+            <div class="form-field">
+              <label>Social Media Team position</label>
+              <select id="sa-social">
+                <option value="">Not applying for social media team</option>
+                <option>Social Media Director</option>
+                <option>Marketing Director</option>
+                <option>Reels Creator</option>
+                <option>Content Creator</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <p class="form-section-title">A little more about you</p>
+          <div class="form-grid single">
+            <div class="form-field">
+              <label>Why would you like to work for Aurora Bloom, and what can you bring to the team? <span>*</span></label>
+              <textarea id="sa-why" placeholder="Tell us why you'd love to join and what makes you a great fit..."></textarea>
+            </div>
+            <div class="form-field">
+              <label>List any useful or relevant experience</label>
+              <textarea id="sa-experience" placeholder="Previous writing, design, social media, or other relevant experience..."></textarea>
+            </div>
+            <div class="form-field">
+              <label>How many hours can you commit per week? <span>*</span></label>
+              <select id="sa-hours">
+                <option value="">Select hours</option>
+                <option>1 hour</option>
+                <option>2 hours</option>
+                <option>3 hours</option>
+                <option>4 hours</option>
+                <option>5 hours</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label>Portfolio or sample work</label>
+              <div class="upload-area" onclick="document.getElementById('sa-portfolio-file').click()">
+                <div class="upload-icon">📁</div>
+                <p class="upload-label">Upload a portfolio, writing sample, or design work</p>
+                <p class="upload-sub">PDF, JPG, PNG — max 10MB · Or add a link below</p>
+                <input type="file" id="sa-portfolio-file" accept=".pdf,image/*" onchange="showFileName('sa-portfolio-file','sa-portfolio-chosen')">
+              </div>
+              <p class="upload-chosen" id="sa-portfolio-chosen"></p>
+              <input type="url" id="sa-portfolio-link" placeholder="Or paste a link to your portfolio / Behance / Google Drive" style="margin-top:0.6rem">
+            </div>
+            <div class="form-field">
+              <label>Any questions for us?</label>
+              <textarea id="sa-questions" placeholder="Anything you'd like to ask..." style="min-height:80px"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <p style="font-size:0.82rem;color:var(--mink);line-height:1.9;text-align:center;margin-bottom:1.5rem;font-family:var(--serif);font-style:italic;">Thank you for reading this far! Regardless of whether your application is successful, we will send you an email letting you know and providing feedback. Have an amazing day and good luck 🌸<br><span style="font-size:0.75rem;font-style:normal;font-family:var(--sans)">— Zaibaa Rawat, Editor-in-Chief of Aurora Bloom</span></p>
+
+        <div class="form-msg" id="sa-msg"></div>
+        <button class="form-submit" onclick="submitStaff()">Submit application 🌸</button>
+      </div>
+
+      <div class="form-success" id="staff-success">
+        <div class="form-success-icon">✨</div>
+        <p class="form-success-title">Application received!</p>
+        <p class="form-success-msg">Thank you so much for applying to join Aurora Bloom. We've received your application and will be in touch with feedback regardless of the outcome. Have an amazing day — good luck! 🌸</p>
+      </div>
+    </div>
+  </div>
+  <footer>
+    <p class="ft-logo">Aurora Bloom</p>
+    <p class="ft-copy">© 2025 Aurora Bloom · All rights reserved</p>
+    <p class="ft-tag">Blooming bi-monthly, with love.</p>
+  </footer>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://bjfliffbcgstznmkffdd.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_Bayn7ZjGkEqhK1_pMwvhZg_GQS2-Dby';
+const MAILERLITE_KEY = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiI0IiwianRpIjoiYmM0MmU3Y2ZlMjhlMjk3NmQ3ZTUwNzdjYzFjYWFmMzJlNGM0MzAxNTcxMGU4OWNmNWYyOWNmOTA5NDc0YTY0NmMwNDQ0ZDQ5YTYxM2Y3YjkiLCJpYXQiOjE3Nzg2NTk0NjkuNTg3ODgxLCJuYmYiOjE3Nzg2NTk0NjkuNTg3ODgzLCJleHAiOjQ5MzQzMzMwNjkuNTgwODM3LCJzdWIiOiIxNTkzMzM3Iiwic2NvcGVzIjpbXX0.Rn5n5qF-81ZKEY7_-BMkEtjizCrEdZ30MDO57hOdSwK9Na_u9TRObHD2C_mNnL-ClLZq_HBO-ooqVRdD9BqR5VVwuIWFbZhlkimu_RhhvCLL7SQaNoDcoCsaBIgz1b7Un5R2r36M5LxXbFqG2frVlKO_rZzYT6QnDYHyOY7vxHVcE_s4T-qs6mmT1L1b2J87c0PldhBtuz7nCuUbTdgmEMVf4Nc1GCsFBiLTs2Ww4Z2bmSYvwDEtrQYgcSdxMS7L34Kw7yUGEnjw0QIQN3Qrs0Mo1DB-AtOUm8XhRD22ArZex3XOZEr1QEKgYLngzRxf7dMYFzVqLojCRbEUmm416XS1u974mx-Il6QCp73q6SKsYUZyqf2cj3raTdPxPahGiBbSbxtZdFlb7duppvFSaYVFkINFOF8a7Cve8BTAgLUk6_FLWYn-dZPNxA8r15z-6JEzwqtvFg8SPdGpiiob61kIVedXWPvfhuSeF-moV1t8-rqRQWmi6fYbmGll8BRTqlkmfUbEnc6qQMbA6q7s2YjI4-g8M2gFOFDux2K60fZTKxuYfkjQjDnMBN0F1J0ouQCUiBhDz77bqqGekpVDi2xPz20Wi3SYDF6wQlwbhtwbLWG1x2dUEak4CrIj9znz4RU1Q5iKyNXQwxTzFOyQuheb6wIsTPYBfqB4Gx3MDn0';
+const MAILERLITE_GROUP = '156628730981123930';
+
+let sb = null;
+let mode = 'signup';
+let currentUser = null;
+
+// ── INIT ──
+window.addEventListener('load', function() {
+  // Always show home page first
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-home').classList.add('active');
+
+  // Init Supabase safely
+  try {
+    sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    sb.auth.getSession().then(({ data: { session } }) => {
+      if (session) onSignIn(session.user);
+    });
+    sb.auth.onAuthStateChange((_, session) => {
+      if (session) onSignIn(session.user);
+      else onSignOut();
+    });
+  } catch(e) {
+    console.log('Supabase init failed:', e);
+  }
+
+  initReveal();
+});
+
+// ── AUTH STATE ──
+function onSignIn(user) {
+  currentUser = user;
+  const name = user.user_metadata?.name || user.email.split('@')[0];
+  document.getElementById('nav-guest').style.display = 'none';
+  document.getElementById('nav-member').style.display = 'flex';
+  document.getElementById('nav-greeting').textContent = name;
+  document.getElementById('member-name').textContent = name;
+}
+
+function onSignOut() {
+  currentUser = null;
+  document.getElementById('nav-guest').style.display = 'flex';
+  document.getElementById('nav-member').style.display = 'none';
+  showPage('home');
+}
+
+// ── PAGES ──
+function showPage(p) {
+  document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
+  if (p === 'members') {
+    if (!currentUser) { openAuth('login'); return; }
+    document.getElementById('page-members').classList.add('active');
+  } else if (p === 'creative') {
+    document.getElementById('page-creative').classList.add('active');
+  } else if (p === 'staff') {
+    document.getElementById('page-staff').classList.add('active');
+  } else {
+    document.getElementById('page-home').classList.add('active');
+  }
+  window.scrollTo(0, 0);
+}
+
+function goTo(id) {
+  showPage('home');
+  setTimeout(() => { const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: 'smooth' }); }, 60);
+}
+
+// ── AUTH MODAL ──
+function openAuth(m) {
+  mode = m; updateUI(); clearMsg();
+  document.getElementById('auth-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('a-email').focus(), 100);
+}
+
+function closeAuth() { document.getElementById('auth-overlay').classList.remove('open'); clearMsg(); }
+
+function overlayClick(e) { if (e.target.id === 'auth-overlay') closeAuth(); }
+
+function toggleMode() { mode = mode === 'signup' ? 'login' : 'signup'; updateUI(); clearMsg(); }
+
+function updateUI() {
+  const s = mode === 'signup';
+  document.getElementById('a-eyebrow').textContent = s ? 'Join Aurora Bloom' : 'Welcome back';
+  document.getElementById('a-title').innerHTML = s ? 'Create your <em>account</em>' : 'Sign <em>in</em>';
+  document.getElementById('a-name-row').style.display = s ? 'flex' : 'none';
+  document.getElementById('a-btn').textContent = s ? 'Create account' : 'Sign in';
+  document.getElementById('a-switch').innerHTML = s
+    ? 'Already a member? <button onclick="toggleMode()">Sign in instead</button>'
+    : 'New here? <button onclick="toggleMode()">Create a free account</button>';
+}
+
+async function handleAuth() {
+  if (!sb) { showMsg('Authentication unavailable. Please try again later.', 'error'); return; }
+  const email = document.getElementById('a-email').value.trim();
+  const pass = document.getElementById('a-pass').value;
+  const name = document.getElementById('a-name').value.trim();
+  const btn = document.getElementById('a-btn');
+  if (!email || !pass) { showMsg('Please fill in all fields.', 'error'); return; }
+  if (mode === 'signup' && pass.length < 6) { showMsg('Password must be at least 6 characters.', 'error'); return; }
+  btn.disabled = true;
+  btn.textContent = mode === 'signup' ? 'Creating account…' : 'Signing in…';
+  if (mode === 'signup') {
+    const { error } = await sb.auth.signUp({ email, password: pass, options: { data: { name: name || email.split('@')[0] } } });
+    if (error) showMsg(error.message, 'error');
+    else {
+      addToMailerLite(email, name || email.split('@')[0]);
+      showMsg('✨ Account created! Check your email to confirm, then sign in.', 'success');
+    }
+  } else {
+    const { error } = await sb.auth.signInWithPassword({ email, password: pass });
+    if (error) showMsg(error.message, 'error');
+    else { closeAuth(); showPage('members'); }
+  }
+  btn.disabled = false;
+  btn.textContent = mode === 'signup' ? 'Create account' : 'Sign in';
+}
+
+async function doSignOut() { if (sb) await sb.auth.signOut(); }
+
+function showMsg(msg, type) { const el = document.getElementById('a-msg'); el.textContent = msg; el.className = 'auth-msg ' + type; }
+function clearMsg() { const el = document.getElementById('a-msg'); el.textContent = ''; el.className = 'auth-msg'; }
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeAuth();
+  if (e.key === 'Enter' && document.getElementById('auth-overlay').classList.contains('open')) handleAuth();
+});
+
+// ── MAILERLITE ──
+async function addToMailerLite(email, name) {
+  try {
+    await fetch('https://connect.mailerlite.com/api/subscribers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'Authorization': `Bearer ${MAILERLITE_KEY}` },
+      body: JSON.stringify({ email, fields: { name }, groups: [MAILERLITE_GROUP] })
+    });
+  } catch(e) { console.log('MailerLite sync skipped:', e); }
+}
+
+// ── FORM HELPERS ──
+function showFileName(inputId, outputId) {
+  const file = document.getElementById(inputId).files[0];
+  if (file) document.getElementById(outputId).textContent = '📎 ' + file.name;
+}
+
+document.addEventListener('change', function(e) {
+  if (e.target.name === 'cs-published') {
+    document.getElementById('cs-published-where-field').style.display = e.target.value === 'yes' ? 'flex' : 'none';
+  }
+});
+
+async function submitCreative() {
+  const name = document.getElementById('cs-name').value.trim();
+  const email = document.getElementById('cs-email').value.trim();
+  const age = document.getElementById('cs-age').value.trim();
+  const instagram = document.getElementById('cs-instagram').value.trim();
+  const published = document.querySelector('input[name="cs-published"]:checked')?.value;
+  const publishedWhere = document.getElementById('cs-published-where').value.trim();
+  const writing = document.getElementById('cs-writing').value.trim();
+  const consent = document.querySelector('input[name="cs-consent"]:checked')?.value;
+  const questions = document.getElementById('cs-questions').value.trim();
+  const msg = document.getElementById('cs-msg');
+  if (!name || !email || !age || !published || !consent) { msg.textContent = 'Please fill in all required fields marked with *.'; msg.className = 'form-msg error'; return; }
+  if (!writing && !document.getElementById('cs-art-file').files[0]) { msg.textContent = 'Please include either a written piece or artwork.'; msg.className = 'form-msg error'; return; }
+  const btn = document.querySelector('#creative-form-wrap .form-submit');
+  btn.disabled = true; btn.textContent = 'Sending…';
+  const body = `NEW CREATIVE SUBMISSION
+Name: ${name}
+Email: ${email}
+Age: ${age}
+Instagram: ${instagram||'—'}
+Published before: ${published==='yes'?'Yes — '+(publishedWhere||'not specified'):'No'}
+Consent: ${consent==='yes'?'Yes':'Wants to discuss'}
+
+WRITING:
+${writing||'(none)'}
+
+ART FILE: ${document.getElementById('cs-art-file').files[0]?.name||'(none)'}
+
+NOTES: ${questions||'—'}`;
+  try {
+    await fetch('https://formsubmit.co/ajax/aurorabloommagazine@gmail.com', { method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'}, body: JSON.stringify({_subject:`Creative Submission from ${name}`, message: body, _captcha:'false'}) });
+    document.getElementById('creative-form-wrap').style.display = 'none';
+    document.getElementById('creative-success').classList.add('show');
+  } catch { msg.textContent = 'Something went wrong. Please email aurorabloommagazine@gmail.com directly.'; msg.className = 'form-msg error'; btn.disabled = false; btn.textContent = 'Submit your work 🌸'; }
+}
+
+async function submitStaff() {
+  const name = document.getElementById('sa-name').value.trim();
+  const email = document.getElementById('sa-email').value.trim();
+  const age = document.getElementById('sa-age').value.trim();
+  const pronouns = document.getElementById('sa-pronouns').value.trim();
+  const location = document.getElementById('sa-location').value.trim();
+  const instagram = document.getElementById('sa-instagram').value.trim();
+  const intro = document.getElementById('sa-intro').value.trim();
+  const design = document.getElementById('sa-design').value;
+  const writing = [...document.querySelectorAll('input[name="sa-writing"]:checked')].map(c=>c.value).join(', ');
+  const social = document.getElementById('sa-social').value;
+  const why = document.getElementById('sa-why').value.trim();
+  const experience = document.getElementById('sa-experience').value.trim();
+  const hours = document.getElementById('sa-hours').value;
+  const portfolioLink = document.getElementById('sa-portfolio-link').value.trim();
+  const questions = document.getElementById('sa-questions').value.trim();
+  const msg = document.getElementById('sa-msg');
+  if (!name || !email || !age || !instagram || !intro || !why || !hours) { msg.textContent = 'Please fill in all required fields marked with *.'; msg.className = 'form-msg error'; return; }
+  if (!design && !writing && !social) { msg.textContent = 'Please select at least one position.'; msg.className = 'form-msg error'; return; }
+  const btn = document.querySelector('#staff-form-wrap .form-submit');
+  btn.disabled = true; btn.textContent = 'Sending…';
+  const body = `NEW STAFF APPLICATION
+Name: ${name}
+Pronouns: ${pronouns||'—'}
+Email: ${email}
+Age: ${age}
+Location: ${location||'—'}
+Instagram: ${instagram}
+
+INTRO:
+${intro}
+
+POSITIONS:
+Design: ${design||'—'}
+Writing: ${writing||'—'}
+Social Media: ${social||'—'}
+
+WHY AURORA BLOOM:
+${why}
+
+EXPERIENCE:
+${experience||'—'}
+Hours/week: ${hours}
+Portfolio: ${portfolioLink||'—'}
+
+QUESTIONS: ${questions||'—'}`;
+  try {
+    await fetch('https://formsubmit.co/ajax/aurorabloommagazine@gmail.com', { method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'}, body: JSON.stringify({_subject:`Staff Application from ${name}`, message: body, _captcha:'false'}) });
+    document.getElementById('staff-form-wrap').style.display = 'none';
+    document.getElementById('staff-success').classList.add('show');
+  } catch { msg.textContent = 'Something went wrong. Please email aurorabloommagazine@gmail.com directly.'; msg.className = 'form-msg error'; btn.disabled = false; btn.textContent = 'Submit application 🌸'; }
+}
+
+// ── SCROLL REVEAL ──
+function initReveal() {
+  const els = document.querySelectorAll('.reveal');
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); } });
+  }, { threshold: 0.12 });
+  els.forEach(el => obs.observe(el));
+}
+</script>
+</body>
+</html>
